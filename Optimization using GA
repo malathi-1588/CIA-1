@@ -1,0 +1,175 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+UPPER = 5
+LOWER = -1
+# Load data
+data = pd.read_csv('Bank_Personal_Loan_Modelling.csv')
+X = data.drop(['ID', 'ZIP Code', 'Personal Loan'], axis=1).values
+y = data['Personal Loan'].values
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Scale data
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+# Define neural network
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super(NeuralNetwork, self).__init__()
+        self.layer1 = nn.Linear(11, 64)
+        self.layer2 = nn.Linear(64, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.sigmoid(self.layer1(x))
+        x = self.sigmoid(self.layer2(x))
+        return x
+## Decoding the encoded individual in a population
+def decode(individual):
+    CONVERTER = np.array([2**(len(individual) - 1 - i) for i in range(len(individual))])
+#   [2**6, 2**5, 2**4, 2**3, 2**2.... 2**0] . [1,0,1,0,1,1,1]
+    
+    number = np.dot(CONVERTER, individual)/2**len(individual)
+    
+    MIN = np.dot(CONVERTER, np.array([0 for i in range(len(individual))]))/2**len(individual) #[0,0,0,0,0,0,0]
+    MAX = np.dot(CONVERTER, np.array([1 for i in range(len(individual))]))/2**len(individual) #[1,1,1,1,1,1,1]
+    
+    final = (UPPER - LOWER)*(number - MIN)/(MAX - MIN) + LOWER
+    return final
+## Fitness function
+def fitnessFunc(individual):
+    value = decode(individual)
+    
+    y = function(value)
+    return y
+ ##mutation function                                                                          
+def mutate(individual, mutation_rate = 0.01):                                                
+    if (np.random.random() > (1-mutation_rate)):                                             
+        index = np.random.randint(len(individual))                                                  
+        individual[index] = not individual[index]                                            
+                                                                                             
+    return individual      
+def reproduce(individual1, individual2):                                                     
+    split_point = np.random.randint(len(individual1))                                        
+                                                                                             
+    child1 = np.concatenate((individual1[:split_point], individual2[split_point:]))             
+    child2 = np.concatenate((individual2[:split_point], individual1[split_point:])) 
+         
+    child3 = np.concatenate((individual1[split_point:], individual2[:split_point]))          
+    child4 = np.concatenate((individual2[split_point:], individual1[:split_point]))          
+                                                                                             
+    child1 = mutate(child1)                                                                     
+    child2 = mutate(child2)                                                                  
+    child3 = mutate(child3)                                                                     
+    child4 = mutate(child4)                                                                     
+                                                                                             
+    return [child1, child2, child3, child4]  
+##adding children/ new individuals into ppulation while cecking for duplicate entries
+def appendChildren(population, children):
+    for child in children:
+        if child.tolist() not in population.tolist():
+            population = np.concatenate((population, np.array([child])))
+    return population
+g1 = generatePopulation(64)
+w1 = []
+for i in g1:
+    w1 += [decode(i)]  
+
+g2 = generatePopulation(704)
+w2 = []
+for i in g2:
+  w2 += [decode(i)]
+
+g3 = generatePopulation(64)
+b1 = []
+for i in g3:
+  b1 += [decode(i)]
+
+g4 = generatePopulation(1)
+b2 = []
+for i in g4:
+  b2 += [decode(i)]
+
+w1 = torch.tensor(w1)
+w2 = torch.tensor(w2)
+b1 = torch.tensor(b1)
+b2 = torch.tensor(b2)
+
+w1 = w1.reshape(1,64)
+w2 = w2.reshape(64,11)
+b1 = b1.reshape(64,1)
+b2 = b2.reshape(1)
+##reproduction, 
+def formNextPopulation(population):
+    pop_size = len(population)
+    
+    for individual1_index  in range(pop_size):
+        for individual2_index in range(pop_size):
+            if individual1_index != individual2_index:  
+                children = reproduce(population[individual1_index], population[individual2_index])
+                population = appendChildren(population, children)
+            
+    fitness_values = []
+    
+    for individual in population:
+        fitness_values += [fitnessFunc(individual)]
+        
+    sorted_population = np.argsort(fitness_values)[::-1][:SIZE]
+    
+    return population[sorted_population]
+# Train model
+epochs = 1000
+for epoch in range(epochs):
+    model = NeuralNetwork()
+
+
+    model.layer1.weight.data = w1
+    model.layer2.weight.data = w2 
+
+    model.layer1.bias.data = b1
+    model.layer2.bias.data = b2
+
+    criterion = nn.BCELoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    optimizer.zero_grad()
+    output = model(torch.tensor(X_train))
+    loss = criterion(output, torch.Tensor(y_train).view(-1, 1))
+    loss.backward()
+    optimizer.step()
+    if epoch % 100 == 0:
+            print(f"Epoch: {epoch+1}, Error: {loss}")
+    
+    g1 = formNextPopulation(64)
+    w1 = []
+    for i in g1:
+      w1 += [decode(i)]  
+
+    g2 = formNextPopulation(704)
+    w2 = []
+    for i in g2:
+      w2 += [decode(i)]
+
+    g3 = formNextPopulation(64)
+    b1 = []
+    for i in g3:
+      b1 += [decode(i)]
+
+    g4 = formNextPopulation(1)
+    b2 = []
+    for i in g4:
+      b2 += [decode(i)]
+
+    w1 = torch.tensor(w1)
+    w2 = torch.tensor(w2)
+    b1 = torch.tensor(b1)
+    b2 = torch.tensor(b2)
+
+    w1 = w1.reshape(64,1)
+    w2 = w2.reshape(64,11)
+    b1 = b1.reshape(64,1)
+    b2 = b2.reshape(1)

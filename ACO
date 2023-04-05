@@ -1,0 +1,141 @@
+import random
+import numpy as np
+
+# Function to initialize pheromone matrix with a small value
+def initialize_pheromone_matrix(num_cities):
+    pheromone_matrix = np.ones((num_cities, num_cities))
+    np.fill_diagonal(pheromone_matrix, 0.0)
+    return pheromone_matrix
+
+# Function to update the pheromone matrix based on the ants' tour
+def update_pheromone_matrix(pheromone_matrix, ants, distances):
+    num_ants = ants.shape[0]
+    for ant_idx in range(num_ants):
+        distance = distances[ant_idx]
+        for i in range(len(ants[ant_idx]) - 1):
+            curr_city, next_city = ants[ant_idx][i], ants[ant_idx][i+1]
+            pheromone_matrix[curr_city][next_city] += 1/distance
+            pheromone_matrix[next_city][curr_city] = pheromone_matrix[curr_city][next_city]
+
+# Function to update the ants' tour based on the pheromone matrix and heuristic information
+def update_ant_tour(pheromone_matrix, heuristic_info, alpha, beta):
+    num_cities = pheromone_matrix.shape[0]
+    start_city = random.randint(0, num_cities - 1)
+    visited_cities = [start_city]
+    unvisited_cities = list(range(num_cities))
+    unvisited_cities.remove(start_city)
+
+    while unvisited_cities:
+        curr_city = visited_cities[-1]
+        pheromone_values = np.power(pheromone_matrix[curr_city, unvisited_cities], alpha)
+        heuristic_values = np.power(heuristic_info[curr_city, unvisited_cities], beta)
+        prob_values = pheromone_values * heuristic_values
+        prob_values /= np.sum(prob_values)
+        next_city = np.random.choice(unvisited_cities, p=prob_values)
+        visited_cities.append(next_city)
+        unvisited_cities.remove(next_city)
+
+    return visited_cities
+
+# Function to get the distances of ants' tour
+def get_ant_distances(ants, distances):
+    num_ants = ants.shape[0]
+    ant_distances = np.zeros(num_ants)
+    for ant_idx in range(num_ants):
+        ant_tour = ants[ant_idx]
+        for i in range(len(ant_tour) - 1):
+            curr_city, next_city = ant_tour[i], ant_tour[i+1]
+            ant_distances[ant_idx] += distances[curr_city][next_city]
+    return ant_distances
+
+# Function to run ant colony optimization algorithm
+def ant_colony_optimization(num_cities, distances, num_ants, max_iterations, alpha, beta):
+    pheromone_matrix = initialize_pheromone_matrix(num_cities)
+    heuristic_info = 1/distances
+    np.fill_diagonal(heuristic_info, 0.0)
+    best_distance = float('inf')
+    for iteration in range(max_iterations):
+        ants = np.zeros((num_ants, num_cities), dtype=int)
+        for ant_idx in range(num_ants):
+            ants[ant_idx] = update_ant_tour(pheromone_matrix, heuristic_info, alpha, beta)
+        ant_distances = get_ant_distances(ants, distances)
+        if np.min(ant_distances) < best_distance:
+            best_distance = np.min(ant_distances)
+            best_tour = ants[np.argmin(ant_distances)]
+        update_pheromone_matrix(pheromone)
+# Set parameters
+alpha = 1  # pheromone importance
+beta = 5   # visibility importance
+rho = 0.5  # pheromone evaporation rate
+Q = 100    # pheromone deposit factor
+num_ants = 10  # number of ants
+num_iterations = 50  # number of iterations
+
+# Initialize pheromone matrix
+pheromone = np.ones((num_inputs, num_hidden + num_outputs))
+
+# Initialize best solution
+best_solution = None
+best_fitness = float('inf')
+
+# Run ant colony optimization
+for iteration in range(num_iterations):
+    # Initialize ant solutions
+    ant_solutions = np.zeros((num_ants, num_inputs))
+    ant_fitness = np.zeros(num_ants)
+    
+    # Construct ant solutions
+    for ant in range(num_ants):
+        # Choose starting node
+        current_node = np.random.randint(num_inputs)
+        visited_nodes = [current_node]
+        
+        # Traverse graph
+        while len(visited_nodes) < num_inputs:
+            # Calculate transition probabilities
+            transition_probs = []
+            for node in range(num_inputs):
+                if node not in visited_nodes:
+                    pheromone_value = pheromone[current_node][node]
+                    visibility_value = visibility[current_node][node]
+                    transition_prob = (pheromone_value ** alpha) * (visibility_value ** beta)
+                    transition_probs.append(transition_prob)
+                else:
+                    transition_probs.append(0)
+                    
+            # Choose next node
+            transition_probs = np.array(transition_probs)
+            transition_probs = transition_probs / np.sum(transition_probs)
+            next_node = np.random.choice(range(num_inputs), p=transition_probs)
+            
+            # Update ant's solution
+            ant_solutions[ant][next_node] = 1
+            visited_nodes.append(next_node)
+            current_node = next_node
+            
+        # Evaluate fitness of ant's solution
+        ant_hidden = np.matmul(ant_solutions[ant], weights_input_hidden)
+        ant_hidden = sigmoid(ant_hidden)
+        ant_output = np.matmul(ant_hidden, weights_hidden_output)
+        ant_output = sigmoid(ant_output)
+        ant_fitness[ant] = np.sum((ant_output - outputs) ** 2)
+        
+        # Update best solution
+        if ant_fitness[ant] < best_fitness:
+            best_solution = ant_solutions[ant]
+            best_fitness = ant_fitness[ant]
+    
+    # Update pheromone matrix
+    pheromone *= (1 - rho)
+    for ant in range(num_ants):
+        for i in range(num_inputs):
+            for j in range(num_hidden + num_outputs):
+                if ant_solutions[ant][i] == 1 and best_solution[i] == 1:
+                    pheromone[i][j] += (Q / best_fitness)
+    
+    # Print iteration results
+    print('Iteration:', iteration, 'Best Fitness:', best_fitness)
+
+# Print final solution
+print('Best Solution:', best_solution)
+
